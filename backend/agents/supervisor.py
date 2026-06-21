@@ -16,7 +16,7 @@ _llm = ChatOpenAI(
 
 _prompt = ChatPromptTemplate.from_template(
     """You are the Supervisor Agent for OpsMind AI — an Enterprise AI Operating System.
-Analyze the user request and dynamically select which specialist agents are needed and in what order.
+Analyze the user request and dynamically select ONLY the specialist agents truly needed, in the right order.
 
 User Request: {user_query}
 
@@ -26,14 +26,24 @@ Respond ONLY with valid JSON (no markdown, no explanation):
   "route": ["planner", "knowledge", "analytics", "decision"]
 }}
 
-Available agents and when to include them:
-- planner: Always include. Breaks the goal into concrete tasks.
-- knowledge: Include when documents, data, or context retrieval is needed.
-- analytics: Include when KPI analysis, risk detection, or pattern recognition is needed.
-- decision: Always include last (before executor). Generates recommendations.
+Available agents:
+- planner: Include for complex multi-step tasks that need decomposition (reports, audits, planning).
+- knowledge: Include when documents, historical data, or context retrieval is needed.
+- analytics: Include when KPI computation, anomaly detection, or risk analysis is needed.
+- decision: ALWAYS include — generates final recommendations and confidence score.
 
-Route must always start with "planner" and end with "decision".
-Goal should be a short snake_case phrase describing the primary objective."""
+Routing examples (choose the minimal set that fits the request):
+- "Prepare weekly report"         → ["planner", "knowledge", "analytics", "decision"]
+- "Analyze project risks"         → ["knowledge", "analytics", "decision"]
+- "What do we know about X?"      → ["knowledge", "decision"]
+- "Give me a quick recommendation"→ ["decision"]
+
+Rules:
+- decision must always be last.
+- Only include planner for tasks that explicitly need step-by-step decomposition.
+- Only include knowledge when retrieval is needed.
+- Only include analytics when quantitative analysis or risk scoring is needed.
+- Goal should be a short snake_case phrase describing the primary objective."""
 )
 
 chain = _prompt | _llm | JsonOutputParser()

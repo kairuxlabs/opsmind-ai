@@ -9,7 +9,7 @@ from pydantic import BaseModel
 
 from backend.graph.state import AgentState
 from backend.graph.workflow import workflow as lg_workflow
-from backend.observability.tracker import get_system_metrics, log_agent_event
+from backend.observability.tracker import get_system_metrics, log_agent_event, write_workflow, update_workflow_status
 from backend.rag.ingest import ingest_csv, ingest_text
 
 router = APIRouter()
@@ -49,6 +49,11 @@ async def create_workflow(body: WorkflowRequest):
         "error": None,
     }
 
+    try:
+        await write_workflow(session_id, body.request)
+    except Exception:
+        pass
+
     await lg_workflow.ainvoke(initial, config=config)
 
     state = lg_workflow.get_state(config)
@@ -64,6 +69,11 @@ async def create_workflow(body: WorkflowRequest):
             )
         except Exception:
             pass
+
+    try:
+        await update_workflow_status(session_id, current.get("status", "waiting_approval"))
+    except Exception:
+        pass
 
     _registry[session_id] = config
     return {

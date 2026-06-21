@@ -11,16 +11,20 @@ import pytest
 @pytest.fixture
 def sample_state():
     return {
-        "workflow_id": "test-integration-1",
+        "session_id": "test-integration-1",
         "user_query": "Prepare weekly report and suggest priorities for next week",
         "goal": "",
-        "required_agents": [],
+        "route": [],
         "tasks": [],
         "documents": [],
         "insights": {},
         "risks": [],
         "recommendations": [],
+        "confidence": 0.0,
+        "explanation": [],
+        "health_score": 0,
         "approved": False,
+        "feedback": None,
         "execution_result": "",
         "status": "planning",
         "agent_logs": [],

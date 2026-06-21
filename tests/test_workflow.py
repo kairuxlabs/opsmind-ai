@@ -46,7 +46,12 @@ async def test_workflow_runs_to_interrupt():
         "health_score": 68,
     }
     decision_out = {
-        "recommendations": ["Allocate engineers to Beta"],
+        "recommendations": [
+            {
+                "text": "Allocate engineers to Beta immediately",
+                "reasons": ["Beta completion at 52%", "Resource gap since May"],
+            }
+        ],
         "confidence": 0.85,
         "explanation": ["Beta completion at 52%", "Resource gap is primary driver"],
     }
@@ -72,6 +77,8 @@ async def test_workflow_runs_to_interrupt():
     assert vals["goal"] == "prepare_weekly_report"
     assert vals["route"] == ["planner", "knowledge", "analytics", "decision"]
     assert len(vals["recommendations"]) >= 1
+    assert isinstance(vals["recommendations"][0], dict)
+    assert "text" in vals["recommendations"][0]
     assert vals["confidence"] == 0.85
     assert len(vals["explanation"]) >= 1
     assert vals["health_score"] == 68

@@ -3,7 +3,7 @@ from pydantic import BaseModel
 
 from backend.api.routes.workflow import _registry
 from backend.graph.workflow import workflow as lg_workflow
-from backend.observability.tracker import log_agent_event
+from backend.observability.tracker import log_agent_event, update_workflow_status
 
 router = APIRouter()
 
@@ -22,6 +22,10 @@ async def submit_approval(workflow_id: str, body: ApprovalRequest):
 
     if not body.approved:
         lg_workflow.update_state(config, {"status": "rejected", "approved": False})
+        try:
+            await update_workflow_status(workflow_id, "rejected")
+        except Exception:
+            pass
         return {"workflow_id": workflow_id, "status": "rejected"}
 
     lg_workflow.update_state(config, {"approved": True, "status": "executing"})
@@ -41,6 +45,12 @@ async def submit_approval(workflow_id: str, body: ApprovalRequest):
                 )
             except Exception:
                 pass
+
+    final_status = current.get("status", "completed")
+    try:
+        await update_workflow_status(workflow_id, final_status)
+    except Exception:
+        pass
 
     return {
         "workflow_id": workflow_id,

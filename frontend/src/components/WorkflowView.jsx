@@ -223,6 +223,36 @@ export default function WorkflowView() {
             </div>
           )}
 
+          {wf.recommendations?.length > 0 && (
+            <div className="mb-4">
+              <p className="text-gray-500 text-xs uppercase tracking-wide mb-2">Recommendations</p>
+              <ol className="space-y-3">
+                {wf.recommendations.map((rec, i) => {
+                  const text = typeof rec === "string" ? rec : rec.text;
+                  const reasons = typeof rec === "string" ? [] : (rec.reasons || []);
+                  return (
+                    <li key={i} className="bg-gray-800 rounded-lg p-3 border border-gray-700">
+                      <div className="flex gap-2 text-sm mb-1">
+                        <span className="text-brand-600 font-bold shrink-0">{i + 1}.</span>
+                        <span className="text-gray-200 font-medium">{text}</span>
+                      </div>
+                      {reasons.length > 0 && (
+                        <ul className="ml-5 space-y-0.5">
+                          {reasons.map((r, j) => (
+                            <li key={j} className="text-xs text-gray-400 flex gap-1.5">
+                              <span className="text-brand-700 flex-shrink-0">›</span>
+                              {r}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </li>
+                  );
+                })}
+              </ol>
+            </div>
+          )}
+
           <pre className="whitespace-pre-wrap text-sm text-gray-300 font-mono leading-relaxed mb-6">
             {wf.execution_result}
           </pre>

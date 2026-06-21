@@ -99,8 +99,14 @@ async def test_analytics_node_returns_insights_risks_and_health_score():
 async def test_decision_node_returns_recommendations_confidence_explanation():
     mock_output = {
         "recommendations": [
-            "Allocate 2 engineers to Project Beta",
-            "Review scope of Project Gamma with client",
+            {
+                "text": "Allocate 2 engineers to Project Beta",
+                "reasons": ["Completion rate 52% vs 75% target", "Resource shortage since May"],
+            },
+            {
+                "text": "Review scope of Project Gamma with client",
+                "reasons": ["3 mid-sprint scope changes in Q2"],
+            },
         ],
         "confidence": 0.91,
         "explanation": [
@@ -117,10 +123,31 @@ async def test_decision_node_returns_recommendations_confidence_explanation():
             risks=[{"project": "Project Beta", "risk_level": "High", "reason": "Missing devs"}],
         ))
     assert len(result["recommendations"]) >= 1
+    # Each recommendation is a dict with text and reasons
+    assert isinstance(result["recommendations"][0], dict)
+    assert "text" in result["recommendations"][0]
+    assert "reasons" in result["recommendations"][0]
     assert result["confidence"] == 0.91
     assert len(result["explanation"]) >= 1
     assert result["status"] == "waiting_approval"
     assert result["agent_logs"][0]["agent"] == "decision"
+
+
+@pytest.mark.asyncio
+async def test_decision_node_normalises_legacy_string_recommendations():
+    """decision_node must coerce plain string recommendations to {text, reasons} dicts."""
+    mock_output = {
+        "recommendations": ["Allocate engineers to Beta"],
+        "confidence": 0.75,
+        "explanation": ["Beta at risk"],
+    }
+    with patch("backend.agents.decision.chain") as mock_chain:
+        mock_chain.ainvoke = AsyncMock(return_value=mock_output)
+        from backend.agents.decision import decision_node
+        result = await decision_node(make_state(goal="risk_analysis", insights={}, risks=[]))
+    assert isinstance(result["recommendations"][0], dict)
+    assert result["recommendations"][0]["text"] == "Allocate engineers to Beta"
+    assert result["recommendations"][0]["reasons"] == []
 
 
 @pytest.mark.asyncio
@@ -134,7 +161,7 @@ async def test_executor_node_returns_markdown_report():
             goal="prepare_weekly_report",
             insights={"summary": "Below target", "key_finding": "Resource issues"},
             risks=[{"project": "Beta", "risk_level": "High", "reason": "Missing devs"}],
-            recommendations=["Allocate 2 engineers to Beta"],
+            recommendations=[{"text": "Allocate 2 engineers to Beta", "reasons": ["52% completion rate"]}],
             approved=True,
         ))
     assert "# Weekly Operations Report" in result["execution_result"]

@@ -10,9 +10,9 @@ class AgentState(TypedDict):
     documents: list[dict]
     insights: dict
     risks: list[dict]
-    recommendations: list[str]
-    confidence: float          # FR-04: recommendation confidence 0.0-1.0
-    explanation: list[str]     # FR-05: reasoning behind decisions
+    recommendations: list[dict]  # [{text: str, reasons: list[str]}]
+    confidence: float            # FR-04: recommendation confidence 0.0-1.0
+    explanation: list[str]       # FR-05: overall reasoning summary
     health_score: int          # FR-07: enterprise health score 0-100
     approved: bool
     feedback: Optional[str]    # FR-06: "helpful" | "not_helpful"

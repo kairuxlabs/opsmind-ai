@@ -54,25 +54,88 @@ async def get_workflow_logs(workflow_id: str) -> list[dict]:
         await conn.close()
 
 
+async def write_workflow(workflow_id: str, user_query: str) -> None:
+    conn = await _get_conn()
+    try:
+        await conn.execute(
+            """
+            INSERT INTO workflows (id, user_query, status)
+            VALUES ($1::uuid, $2, 'planning')
+            ON CONFLICT (id) DO NOTHING
+            """,
+            workflow_id,
+            user_query,
+        )
+    finally:
+        await conn.close()
+
+
+async def update_workflow_status(workflow_id: str, status: str) -> None:
+    conn = await _get_conn()
+    try:
+        await conn.execute(
+            """
+            UPDATE workflows SET status = $2, updated_at = NOW() WHERE id = $1::uuid
+            """,
+            workflow_id,
+            status,
+        )
+    finally:
+        await conn.close()
+
+
 async def get_system_metrics() -> dict:
     conn = await _get_conn()
     try:
         today = datetime.now(timezone.utc).date().isoformat()
+
         workflows_today = await conn.fetchval(
             "SELECT COUNT(*) FROM workflows WHERE created_at::date = $1::date", today
+        )
+        completed = await conn.fetchval(
+            "SELECT COUNT(*) FROM workflows WHERE status = 'completed' AND created_at::date = $1::date",
+            today,
+        )
+        failed = await conn.fetchval(
+            "SELECT COUNT(*) FROM workflows WHERE status = 'failed' AND created_at::date = $1::date",
+            today,
+        )
+        rejected = await conn.fetchval(
+            "SELECT COUNT(*) FROM workflows WHERE status = 'rejected' AND created_at::date = $1::date",
+            today,
         )
         avg_latency = await conn.fetchval(
             "SELECT AVG(latency_ms) FROM agent_logs WHERE started_at::date = $1::date", today
         )
-        approvals = await conn.fetchval(
-            "SELECT COUNT(*) FROM workflows WHERE status = 'completed' AND created_at::date = $1::date",
+
+        # Count risks detected from agent_logs output (analytics agent outputs risks array)
+        risks_row = await conn.fetchval(
+            """
+            SELECT COUNT(*)
+            FROM agent_logs
+            WHERE agent_name = 'analytics'
+              AND started_at::date = $1::date
+              AND jsonb_array_length(output->'risks') > 0
+            """,
             today,
         )
+
+        total = int(workflows_today or 0)
+        done = int(completed or 0)
+        err = int(failed or 0)
+
+        success_rate = round(done / total * 100) if total > 0 else 0
+        error_rate = round(err / total * 100) if total > 0 else 0
+        approval_rate = round(done / (done + int(rejected or 0)) * 100) if (done + int(rejected or 0)) > 0 else 0
+
         return {
-            "workflows_today": int(workflows_today or 0),
+            "workflows_today": total,
             "avg_latency_ms": int(avg_latency or 0),
-            "human_approvals": int(approvals or 0),
-            "risks_detected": 0,
+            "human_approvals": done,
+            "risks_detected": int(risks_row or 0),
+            "success_rate": success_rate,
+            "error_rate": error_rate,
+            "approval_rate": approval_rate,
         }
     finally:
         await conn.close()

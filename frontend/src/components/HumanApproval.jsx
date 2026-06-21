@@ -66,13 +66,29 @@ export default function HumanApproval({ workflowId, recommendations, risks, insi
           <p className="text-xs font-semibold text-gray-400 mb-2 uppercase tracking-wide">
             Recommended Actions
           </p>
-          <ol className="space-y-2">
-            {recommendations.map((rec, i) => (
-              <li key={i} className="flex gap-2 text-sm">
-                <span className="text-brand-600 font-bold shrink-0">{i + 1}.</span>
-                <span className="text-gray-200">{rec}</span>
-              </li>
-            ))}
+          <ol className="space-y-3">
+            {recommendations.map((rec, i) => {
+              const text = typeof rec === "string" ? rec : rec.text;
+              const reasons = typeof rec === "string" ? [] : (rec.reasons || []);
+              return (
+                <li key={i} className="bg-gray-800 rounded-lg p-3 border border-gray-700">
+                  <div className="flex gap-2 text-sm mb-1.5">
+                    <span className="text-brand-600 font-bold shrink-0">{i + 1}.</span>
+                    <span className="text-gray-200 font-medium">{text}</span>
+                  </div>
+                  {reasons.length > 0 && (
+                    <ul className="ml-5 space-y-0.5">
+                      {reasons.map((r, j) => (
+                        <li key={j} className="text-xs text-gray-400 flex gap-1.5">
+                          <span className="text-brand-700 flex-shrink-0">›</span>
+                          {r}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </li>
+              );
+            })}
           </ol>
         </div>
       )}

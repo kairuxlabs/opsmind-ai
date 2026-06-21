@@ -14,6 +14,32 @@ function MetricCard({ label, value, unit = "", color = "text-white" }) {
   );
 }
 
+function RateBar({ label, value, target, good }) {
+  const pct = Math.min(value ?? 0, 100);
+  const ok = good ? pct >= target : pct <= target;
+  return (
+    <div className="flex items-center justify-between py-2 border-b border-gray-800 last:border-0">
+      <div className="flex-1">
+        <div className="flex items-center justify-between mb-1">
+          <span className="text-gray-300 text-sm">{label}</span>
+          <div className="flex items-center gap-2">
+            <span className="text-gray-500 text-xs">{good ? `≥${target}%` : `≤${target}%`}</span>
+            <span className={ok ? "text-green-400 text-xs" : "text-red-400 text-xs"}>
+              {ok ? "✓" : "✗"} {pct}%
+            </span>
+          </div>
+        </div>
+        <div className="w-full bg-gray-800 rounded-full h-1.5">
+          <div
+            className={`h-1.5 rounded-full transition-all ${ok ? "bg-green-500" : "bg-red-500"}`}
+            style={{ width: `${pct}%` }}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function Observability() {
   const [metrics, setMetrics] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -50,20 +76,20 @@ export default function Observability() {
         <div className="text-center text-gray-500 py-20 animate-pulse">Loading metrics…</div>
       ) : (
         <>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
             <MetricCard
               label="Workflows Today"
               value={metrics?.workflows_today ?? 0}
               color="text-brand-400"
             />
             <MetricCard
-              label="Avg Latency"
+              label="Avg Agent Latency"
               value={metrics?.avg_latency_ms ?? 0}
               unit="ms"
               color={metrics?.avg_latency_ms > 5000 ? "text-red-400" : "text-green-400"}
             />
             <MetricCard
-              label="Human Approvals"
+              label="Completed"
               value={metrics?.human_approvals ?? 0}
               color="text-blue-400"
             />
@@ -74,25 +100,61 @@ export default function Observability() {
             />
           </div>
 
+          <div className="grid grid-cols-3 gap-4 mb-8">
+            <MetricCard
+              label="Success Rate"
+              value={metrics?.success_rate ?? 0}
+              unit="%"
+              color={(metrics?.success_rate ?? 0) >= 90 ? "text-green-400" : "text-yellow-400"}
+            />
+            <MetricCard
+              label="Approval Rate"
+              value={metrics?.approval_rate ?? 0}
+              unit="%"
+              color={(metrics?.approval_rate ?? 0) >= 70 ? "text-green-400" : "text-orange-400"}
+            />
+            <MetricCard
+              label="Error Rate"
+              value={metrics?.error_rate ?? 0}
+              unit="%"
+              color={(metrics?.error_rate ?? 0) > 10 ? "text-red-400" : "text-green-400"}
+            />
+          </div>
+
           <div className="bg-gray-900 rounded-xl border border-gray-800 p-6">
-            <h3 className="font-semibold text-gray-200 mb-4">System Status</h3>
+            <h3 className="font-semibold text-gray-200 mb-4">System Health</h3>
             <div className="space-y-3">
-              {[
-                { label: "Workflow Execution", target: ">95% completion", ok: true },
-                { label: "Human Approval Gate", target: "<30s latency", ok: true },
-                { label: "Agent Failure Recovery", target: ">90% success", ok: true },
-                { label: "Recommendation Accuracy", target: ">85% (feedback-based)", ok: metrics?.human_approvals > 0 },
-              ].map((row, i) => (
-                <div key={i} className="flex items-center justify-between py-2 border-b border-gray-800 last:border-0">
-                  <span className="text-gray-300 text-sm">{row.label}</span>
-                  <div className="flex items-center gap-2">
-                    <span className="text-gray-600 text-xs">{row.target}</span>
-                    <span className={row.ok ? "text-green-400 text-xs" : "text-gray-600 text-xs"}>
-                      {row.ok ? "✓" : "–"}
-                    </span>
-                  </div>
+              <RateBar
+                label="Workflow Success Rate"
+                value={metrics?.success_rate}
+                target={95}
+                good={true}
+              />
+              <RateBar
+                label="Human Approval Rate"
+                value={metrics?.approval_rate}
+                target={70}
+                good={true}
+              />
+              <RateBar
+                label="Error Rate"
+                value={metrics?.error_rate}
+                target={10}
+                good={false}
+              />
+              <div className="flex items-center justify-between py-2 border-b border-gray-800 last:border-0">
+                <span className="text-gray-300 text-sm">Agent Latency</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-gray-500 text-xs">≤5000ms</span>
+                  <span className={
+                    (metrics?.avg_latency_ms ?? 0) <= 5000
+                      ? "text-green-400 text-xs"
+                      : "text-red-400 text-xs"
+                  }>
+                    {(metrics?.avg_latency_ms ?? 0) <= 5000 ? "✓" : "✗"} {metrics?.avg_latency_ms ?? 0}ms
+                  </span>
                 </div>
-              ))}
+              </div>
             </div>
           </div>
         </>
