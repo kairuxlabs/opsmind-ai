@@ -4,6 +4,7 @@ import WorkflowView from "./components/WorkflowView.jsx";
 import MemoryCenter from "./components/MemoryCenter.jsx";
 import Observability from "./components/Observability.jsx";
 import Playground from "./components/Playground.jsx";
+import Insights from "./components/Insights.jsx";
 
 const navLinkClass = ({ isActive }) =>
   `text-sm transition-colors ${isActive ? "text-white font-medium" : "text-gray-500 hover:text-gray-300"}`;
@@ -18,6 +19,7 @@ export default function App() {
         </div>
         <NavLink to="/" end className={navLinkClass}>Command Center</NavLink>
         <NavLink to="/playground" className={navLinkClass}>Playground</NavLink>
+        <NavLink to="/insights" className={navLinkClass}>Insights</NavLink>
         <NavLink to="/memory" className={navLinkClass}>Memory</NavLink>
         <NavLink to="/observability" className={navLinkClass}>Observability</NavLink>
         <span className="text-gray-700 text-xs ml-auto">
@@ -28,6 +30,7 @@ export default function App() {
         <Route path="/" element={<Dashboard />} />
         <Route path="/workflow/:id" element={<WorkflowView />} />
         <Route path="/playground" element={<Playground />} />
+        <Route path="/insights" element={<Insights />} />
         <Route path="/memory" element={<MemoryCenter />} />
         <Route path="/observability" element={<Observability />} />
       </Routes>

@@ -276,17 +276,43 @@ export default function WorkflowView() {
         </>
       )}
 
+      {/* Archived banner */}
+      {wf.archived && (
+        <div className="bg-gray-900 border border-gray-700 rounded-xl p-4 mb-6 flex items-center gap-3">
+          <span className="text-yellow-500 text-lg">🗄</span>
+          <p className="text-sm text-gray-400">
+            This workflow ran in a previous session. The full report is no longer in memory — only status and metadata are shown.
+          </p>
+        </div>
+      )}
+
       {/* Completed report */}
       {wf.status === "completed" && wf.execution_result && (
         <div className="bg-gray-900 rounded-xl border border-green-800 p-6 mt-6">
           <div className="flex items-start justify-between mb-4">
             <h3 className="font-bold text-green-400">✓ Report Generated</h3>
-            {wf.confidence > 0 && (
-              <div className="text-right">
-                <p className="text-gray-500 text-xs mb-1">AI Confidence</p>
-                <span className="text-white font-bold">{Math.round(wf.confidence * 100)}%</span>
-              </div>
-            )}
+            <div className="flex items-center gap-3">
+              {wf.confidence > 0 && (
+                <div className="text-right">
+                  <p className="text-gray-500 text-xs mb-1">AI Confidence</p>
+                  <span className="text-white font-bold">{Math.round(wf.confidence * 100)}%</span>
+                </div>
+              )}
+              <button
+                onClick={() => {
+                  const blob = new Blob([wf.execution_result], { type: "text/markdown" });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement("a");
+                  a.href = url;
+                  a.download = `opsmind-${wf.goal || "report"}-${id.slice(0, 8)}.md`;
+                  a.click();
+                  URL.revokeObjectURL(url);
+                }}
+                className="text-xs bg-gray-800 hover:bg-gray-700 border border-gray-700 text-gray-300 px-3 py-1.5 rounded-lg transition-colors"
+              >
+                ↓ Export .md
+              </button>
+            </div>
           </div>
 
           {wf.explanation?.length > 0 && (

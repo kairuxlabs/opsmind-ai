@@ -13,8 +13,11 @@ from sse_starlette.sse import EventSourceResponse
 from backend.graph.state import AgentState
 from backend.graph.workflow import workflow as lg_workflow
 from backend.observability.tracker import (
+    get_agent_performance,
     get_metrics_history,
     get_system_metrics,
+    get_workflow_by_id,
+    get_workflow_list,
     log_agent_event,
     update_workflow_status,
     write_workflow,
@@ -108,53 +111,102 @@ async def create_workflow(body: WorkflowRequest, background_tasks: BackgroundTas
 
 @router.get("/workflow/{workflow_id}")
 async def get_workflow(workflow_id: str):
-    if workflow_id not in _registry:
-        raise HTTPException(status_code=404, detail="Workflow not found")
-    config = _registry[workflow_id]
-    state = lg_workflow.get_state(config)
+    # Live workflow: use LangGraph MemorySaver state
+    if workflow_id in _registry:
+        config = _registry[workflow_id]
+        state = lg_workflow.get_state(config)
 
-    # State may be empty if background task hasn't committed the first node yet
-    current = state.values if (state and state.values) else {}
-    if not current:
+        # State may be empty if background task hasn't committed the first node yet
+        current = state.values if (state and state.values) else {}
+        if not current:
+            return {
+                "workflow_id": workflow_id,
+                "status": "starting",
+                "user_query": "",
+                "goal": "",
+                "route": [],
+                "tasks": [],
+                "insights": {},
+                "risks": [],
+                "recommendations": [],
+                "confidence": 0.0,
+                "explanation": [],
+                "health_score": 0,
+                "critique": None,
+                "agent_logs": [],
+                "execution_result": "",
+                "feedback": None,
+                "created_at": None,
+                "archived": False,
+            }
+
         return {
             "workflow_id": workflow_id,
-            "status": "starting",
-            "user_query": "",
-            "goal": "",
-            "route": [],
-            "tasks": [],
-            "insights": {},
-            "risks": [],
-            "recommendations": [],
-            "confidence": 0.0,
-            "explanation": [],
-            "health_score": 0,
-            "critique": None,
-            "agent_logs": [],
-            "execution_result": "",
-            "feedback": None,
-            "created_at": None,
+            "status": current.get("status"),
+            "user_query": current.get("user_query"),
+            "goal": current.get("goal"),
+            "route": current.get("route", []),
+            "tasks": current.get("tasks", []),
+            "insights": current.get("insights", {}),
+            "risks": current.get("risks", []),
+            "recommendations": current.get("recommendations", []),
+            "confidence": current.get("confidence", 0.0),
+            "explanation": current.get("explanation", []),
+            "health_score": current.get("health_score", 0),
+            "critique": current.get("critique"),
+            "agent_logs": current.get("agent_logs", []),
+            "execution_result": current.get("execution_result", ""),
+            "feedback": current.get("feedback"),
+            "created_at": current.get("created_at"),
+            "archived": False,
         }
+
+    # Archived fallback: workflow ran in a previous server session, state is gone
+    try:
+        archived = await get_workflow_by_id(workflow_id)
+    except Exception:
+        archived = None
+
+    if not archived:
+        raise HTTPException(status_code=404, detail="Workflow not found")
 
     return {
         "workflow_id": workflow_id,
-        "status": current.get("status"),
-        "user_query": current.get("user_query"),
-        "goal": current.get("goal"),
-        "route": current.get("route", []),
-        "tasks": current.get("tasks", []),
-        "insights": current.get("insights", {}),
-        "risks": current.get("risks", []),
-        "recommendations": current.get("recommendations", []),
-        "confidence": current.get("confidence", 0.0),
-        "explanation": current.get("explanation", []),
-        "health_score": current.get("health_score", 0),
-        "critique": current.get("critique"),
-        "agent_logs": current.get("agent_logs", []),
-        "execution_result": current.get("execution_result", ""),
-        "feedback": current.get("feedback"),
-        "created_at": current.get("created_at"),
+        "status": archived["status"],
+        "user_query": archived["user_query"],
+        "goal": "",
+        "route": [],
+        "tasks": [],
+        "insights": {},
+        "risks": [],
+        "recommendations": [],
+        "confidence": 0.0,
+        "explanation": [],
+        "health_score": 0,
+        "critique": None,
+        "agent_logs": [],
+        "execution_result": "",
+        "feedback": None,
+        "created_at": archived["created_at"],
+        "archived": True,
     }
+
+
+@router.get("/workflows")
+async def list_workflows(limit: int = 20):
+    try:
+        return await get_workflow_list(limit)
+    except Exception:
+        return []
+
+
+@router.get("/insights")
+async def get_insights():
+    try:
+        perf = await get_agent_performance()
+        return {"agent_performance": perf}
+    except Exception:
+        return {"agent_performance": []}
 
 
 @router.get("/metrics")

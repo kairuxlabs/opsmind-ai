@@ -26,6 +26,12 @@ export const getMetricsHistory = (days = 7) =>
 export const runPlayground = (agent, query) =>
   api.post("/playground", { agent, query }).then((r) => r.data);
 
+export const getWorkflows = (limit = 20) =>
+  api.get(`/workflows?limit=${limit}`).then((r) => r.data);
+
+export const getInsights = () =>
+  api.get("/insights").then((r) => r.data);
+
 export const getMemoryHistory = (limit = 20) =>
   api.get(`/memory?limit=${limit}`).then((r) => r.data);
 

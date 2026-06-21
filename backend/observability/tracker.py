@@ -85,6 +85,82 @@ async def update_workflow_status(workflow_id: str, status: str) -> None:
         await conn.close()
 
 
+async def get_workflow_list(limit: int = 20) -> list[dict]:
+    conn = await _get_conn()
+    try:
+        rows = await conn.fetch(
+            """
+            SELECT id, user_query, status, created_at, updated_at
+            FROM workflows
+            ORDER BY created_at DESC
+            LIMIT $1
+            """,
+            limit,
+        )
+        return [
+            {
+                "id": str(r["id"]),
+                "user_query": r["user_query"],
+                "status": r["status"],
+                "created_at": r["created_at"].isoformat() if r["created_at"] else None,
+                "updated_at": r["updated_at"].isoformat() if r["updated_at"] else None,
+            }
+            for r in rows
+        ]
+    finally:
+        await conn.close()
+
+
+async def get_workflow_by_id(workflow_id: str) -> dict | None:
+    """Archived fallback: fetch basic workflow info from DB when not in registry."""
+    conn = await _get_conn()
+    try:
+        row = await conn.fetchrow(
+            "SELECT id, user_query, status, created_at FROM workflows WHERE id = $1::uuid",
+            workflow_id,
+        )
+        if not row:
+            return None
+        return {
+            "id": str(row["id"]),
+            "user_query": row["user_query"],
+            "status": row["status"],
+            "created_at": row["created_at"].isoformat() if row["created_at"] else None,
+        }
+    finally:
+        await conn.close()
+
+
+async def get_agent_performance() -> list[dict]:
+    conn = await _get_conn()
+    try:
+        rows = await conn.fetch(
+            """
+            SELECT
+                agent_name,
+                COUNT(*) AS total_runs,
+                AVG(latency_ms)::int AS avg_latency_ms,
+                MIN(latency_ms) AS min_latency_ms,
+                MAX(latency_ms) AS max_latency_ms
+            FROM agent_logs
+            GROUP BY agent_name
+            ORDER BY avg_latency_ms DESC
+            """
+        )
+        return [
+            {
+                "agent": r["agent_name"],
+                "total_runs": int(r["total_runs"]),
+                "avg_latency_ms": int(r["avg_latency_ms"] or 0),
+                "min_latency_ms": int(r["min_latency_ms"] or 0),
+                "max_latency_ms": int(r["max_latency_ms"] or 0),
+            }
+            for r in rows
+        ]
+    finally:
+        await conn.close()
+
+
 async def get_metrics_history(days: int = 7) -> list[dict]:
     """Return per-day counts for the last N days."""
     conn = await _get_conn()
