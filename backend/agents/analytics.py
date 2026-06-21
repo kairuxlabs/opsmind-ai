@@ -7,6 +7,7 @@ from langchain_openai import ChatOpenAI
 
 from backend.config import settings
 from backend.graph.state import AgentState
+from backend.services.tracing import get_tracer_config
 
 _llm = ChatOpenAI(
     model="deepseek-chat",
@@ -62,7 +63,7 @@ async def analytics_node(state: AgentState) -> dict:
         "user_query": state["user_query"],
         "tasks": json.dumps(state.get("tasks", [])),
         "documents": docs_text or "No documents retrieved. Use general knowledge for analysis.",
-    })
+    }, config=get_tracer_config("analytics"))
     latency = int((time.time() - start) * 1000)
     log = {"agent": "analytics", "latency_ms": latency, "output": result}
     return {

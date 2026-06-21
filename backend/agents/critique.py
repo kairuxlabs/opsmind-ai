@@ -7,6 +7,7 @@ from langchain_openai import ChatOpenAI
 
 from backend.config import settings
 from backend.graph.state import AgentState
+from backend.services.tracing import get_tracer_config
 
 _llm = ChatOpenAI(
     model="deepseek-chat",
@@ -64,7 +65,7 @@ async def critique_node(state: AgentState) -> dict:
         "explanation": json.dumps(state.get("explanation", []), indent=2),
         "insights": json.dumps(state.get("insights", {}), indent=2),
         "risks": json.dumps(state.get("risks", []), indent=2),
-    })
+    }, config=get_tracer_config("critique"))
     latency = int((time.time() - start) * 1000)
 
     critique = {

@@ -121,6 +121,34 @@ export default function Observability() {
             />
           </div>
 
+          {/* Langfuse tracing card */}
+          <div className={`rounded-xl border p-5 mb-6 flex items-start gap-4 ${metrics?.langfuse_enabled ? "bg-purple-950/20 border-purple-800/50" : "bg-gray-900 border-gray-800"}`}>
+            <div className="text-2xl leading-none mt-0.5">🔭</div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center justify-between mb-1">
+                <p className="font-semibold text-gray-200 text-sm">LLM Observability — Langfuse</p>
+                {metrics?.langfuse_enabled ? (
+                  <span className="text-xs bg-purple-900 text-purple-300 border border-purple-700 px-2 py-0.5 rounded font-medium">Active</span>
+                ) : (
+                  <span className="text-xs bg-gray-800 text-gray-500 border border-gray-700 px-2 py-0.5 rounded">Not Configured</span>
+                )}
+              </div>
+              {metrics?.langfuse_enabled ? (
+                <p className="text-xs text-gray-400">
+                  Tracing token usage, latency, and errors per agent call.{" "}
+                  <a href={metrics.langfuse_host} target="_blank" rel="noopener noreferrer" className="text-purple-400 underline hover:text-purple-300">
+                    Open dashboard →
+                  </a>
+                </p>
+              ) : (
+                <p className="text-xs text-gray-500">
+                  Set <code className="bg-gray-800 px-1 rounded">LANGFUSE_PUBLIC_KEY</code> and{" "}
+                  <code className="bg-gray-800 px-1 rounded">LANGFUSE_SECRET_KEY</code> in <code className="bg-gray-800 px-1 rounded">.env</code> to enable per-agent LLM tracing.
+                </p>
+              )}
+            </div>
+          </div>
+
           <div className="bg-gray-900 rounded-xl border border-gray-800 p-6">
             <h3 className="font-semibold text-gray-200 mb-4">System Health</h3>
             <div className="space-y-3">

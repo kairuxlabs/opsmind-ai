@@ -6,6 +6,7 @@ from langchain_openai import ChatOpenAI
 
 from backend.config import settings
 from backend.graph.state import AgentState
+from backend.services.tracing import get_tracer_config
 
 _llm = ChatOpenAI(
     model="deepseek-chat",
@@ -51,7 +52,7 @@ chain = _prompt | _llm | JsonOutputParser()
 
 async def supervisor_node(state: AgentState) -> dict:
     start = time.time()
-    result = await chain.ainvoke({"user_query": state["user_query"]})
+    result = await chain.ainvoke({"user_query": state["user_query"]}, config=get_tracer_config("supervisor"))
     latency = int((time.time() - start) * 1000)
     log = {"agent": "supervisor", "latency_ms": latency, "output": result}
     return {

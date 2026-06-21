@@ -11,6 +11,7 @@ router = APIRouter()
 class ApprovalRequest(BaseModel):
     approved: bool
     comment: str = ""
+    modified_recommendations: list[dict] | None = None
 
 
 @router.post("/workflow/{workflow_id}/approval")
@@ -28,7 +29,14 @@ async def submit_approval(workflow_id: str, body: ApprovalRequest):
             pass
         return {"workflow_id": workflow_id, "status": "rejected"}
 
-    lg_workflow.update_state(config, {"approved": True, "status": "executing"})
+    state_update: dict = {"approved": True, "status": "executing"}
+    if body.modified_recommendations is not None:
+        # Normalise: ensure each item has text + reasons shape
+        state_update["recommendations"] = [
+            r if isinstance(r, dict) and "text" in r else {"text": str(r), "reasons": []}
+            for r in body.modified_recommendations
+        ]
+    lg_workflow.update_state(config, state_update)
     await lg_workflow.ainvoke(None, config=config)
 
     state = lg_workflow.get_state(config)

@@ -8,6 +8,7 @@ from langchain_openai import ChatOpenAI
 from backend.config import settings
 from backend.graph.state import AgentState
 from backend.memory.store import load_recent_feedback_for_goal
+from backend.services.tracing import get_tracer_config
 
 _llm = ChatOpenAI(
     model="deepseek-chat",
@@ -92,7 +93,7 @@ async def decision_node(state: AgentState) -> dict:
         "insights": json.dumps(state.get("insights", {})),
         "risks": json.dumps(state.get("risks", [])),
         "feedback_context": feedback_context,
-    })
+    }, config=get_tracer_config("decision"))
     latency = int((time.time() - start) * 1000)
 
     # Normalise: accept both legacy list[str] and new list[dict] from LLM

@@ -8,8 +8,12 @@ export const createWorkflow = (request) =>
 export const getWorkflow = (id) =>
   api.get(`/workflow/${id}`).then((r) => r.data);
 
-export const submitApproval = (id, approved, comment = "") =>
-  api.post(`/workflow/${id}/approval`, { approved, comment }).then((r) => r.data);
+export const submitApproval = (id, approved, comment = "", modifiedRecommendations = null) =>
+  api.post(`/workflow/${id}/approval`, {
+    approved,
+    comment,
+    ...(modifiedRecommendations !== null && { modified_recommendations: modifiedRecommendations }),
+  }).then((r) => r.data);
 
 export const submitFeedback = (id, rating) =>
   api.post(`/workflow/${id}/feedback`, { rating }).then((r) => r.data);

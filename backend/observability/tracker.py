@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 import asyncpg
 
 from backend.config import settings
+from backend.services.tracing import langfuse_enabled
 
 
 async def _get_conn() -> asyncpg.Connection:
@@ -136,6 +137,8 @@ async def get_system_metrics() -> dict:
             "success_rate": success_rate,
             "error_rate": error_rate,
             "approval_rate": approval_rate,
+            "langfuse_enabled": langfuse_enabled(),
+            "langfuse_host": settings.LANGFUSE_HOST if langfuse_enabled() else None,
         }
     finally:
         await conn.close()
