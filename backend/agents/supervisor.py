@@ -15,18 +15,24 @@ _llm = ChatOpenAI(
 )
 
 _prompt = ChatPromptTemplate.from_template(
-    """You are the Supervisor Agent for OpsMind AI.
-Analyze the user request and determine the primary goal and which specialist agents are needed.
+    """You are the Supervisor Agent for OpsMind AI — an Enterprise AI Operating System.
+Analyze the user request and dynamically select which specialist agents are needed and in what order.
 
 User Request: {user_query}
 
 Respond ONLY with valid JSON (no markdown, no explanation):
 {{
   "goal": "prepare_weekly_report",
-  "required_agents": ["planner", "knowledge", "analytics", "decision"]
+  "route": ["planner", "knowledge", "analytics", "decision"]
 }}
 
-Available agents: planner, knowledge, analytics, decision
+Available agents and when to include them:
+- planner: Always include. Breaks the goal into concrete tasks.
+- knowledge: Include when documents, data, or context retrieval is needed.
+- analytics: Include when KPI analysis, risk detection, or pattern recognition is needed.
+- decision: Always include last (before executor). Generates recommendations.
+
+Route must always start with "planner" and end with "decision".
 Goal should be a short snake_case phrase describing the primary objective."""
 )
 
@@ -40,7 +46,7 @@ async def supervisor_node(state: AgentState) -> dict:
     log = {"agent": "supervisor", "latency_ms": latency, "output": result}
     return {
         "goal": result["goal"],
-        "required_agents": result["required_agents"],
+        "route": result.get("route", ["planner", "knowledge", "analytics", "decision"]),
         "status": "running",
         "agent_logs": state.get("agent_logs", []) + [log],
     }

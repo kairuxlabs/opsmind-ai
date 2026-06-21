@@ -1,12 +1,12 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from backend.api.routes import approval, workflow
+from backend.api.routes import approval, feedback, workflow
 
 app = FastAPI(
     title="OpsMind AI",
-    version="2.0.0",
-    description="Autonomous Multi-Agent Decision Intelligence Platform",
+    version="3.0.0",
+    description="Enterprise AI Operating System — Autonomous Multi-Agent Decision Intelligence",
 )
 
 app.add_middleware(
@@ -19,3 +19,4 @@ app.add_middleware(
 
 app.include_router(workflow.router, prefix="/api")
 app.include_router(approval.router, prefix="/api")
+app.include_router(feedback.router, prefix="/api")

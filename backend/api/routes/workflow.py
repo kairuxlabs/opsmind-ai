@@ -14,8 +14,7 @@ from backend.rag.ingest import ingest_csv, ingest_text
 
 router = APIRouter()
 
-# In-memory registry: workflow_id -> LangGraph config thread
-# For production: replace with a database-backed registry
+# In-memory registry: session_id -> LangGraph config thread
 _registry: dict[str, dict] = {}
 
 
@@ -25,20 +24,24 @@ class WorkflowRequest(BaseModel):
 
 @router.post("/workflow")
 async def create_workflow(body: WorkflowRequest):
-    workflow_id = str(uuid.uuid4())
-    config = {"configurable": {"thread_id": workflow_id}}
+    session_id = str(uuid.uuid4())
+    config = {"configurable": {"thread_id": session_id}}
 
     initial: AgentState = {
-        "workflow_id": workflow_id,
+        "session_id": session_id,
         "user_query": body.request,
         "goal": "",
-        "required_agents": [],
+        "route": [],
         "tasks": [],
         "documents": [],
         "insights": {},
         "risks": [],
         "recommendations": [],
+        "confidence": 0.0,
+        "explanation": [],
+        "health_score": 0,
         "approved": False,
+        "feedback": None,
         "execution_result": "",
         "status": "planning",
         "agent_logs": [],
@@ -54,16 +57,21 @@ async def create_workflow(body: WorkflowRequest):
     for log in current.get("agent_logs", []):
         try:
             await log_agent_event(
-                workflow_id=workflow_id,
+                workflow_id=session_id,
                 agent_name=log["agent"],
                 latency_ms=log["latency_ms"],
                 output=log["output"],
             )
         except Exception:
-            pass  # Observability failures must not block the response
+            pass
 
-    _registry[workflow_id] = config
-    return {"workflow_id": workflow_id, "status": current.get("status", "waiting_approval")}
+    _registry[session_id] = config
+    return {
+        "workflow_id": session_id,
+        "status": current.get("status", "waiting_approval"),
+        "goal": current.get("goal", ""),
+        "route": current.get("route", []),
+    }
 
 
 @router.get("/workflow/{workflow_id}")
@@ -78,12 +86,17 @@ async def get_workflow(workflow_id: str):
         "status": current.get("status"),
         "user_query": current.get("user_query"),
         "goal": current.get("goal"),
+        "route": current.get("route", []),
         "tasks": current.get("tasks", []),
         "insights": current.get("insights", {}),
         "risks": current.get("risks", []),
         "recommendations": current.get("recommendations", []),
+        "confidence": current.get("confidence", 0.0),
+        "explanation": current.get("explanation", []),
+        "health_score": current.get("health_score", 0),
         "agent_logs": current.get("agent_logs", []),
         "execution_result": current.get("execution_result", ""),
+        "feedback": current.get("feedback"),
         "created_at": current.get("created_at"),
     }
 

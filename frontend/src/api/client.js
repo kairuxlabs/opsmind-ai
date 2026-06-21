@@ -11,7 +11,13 @@ export const getWorkflow = (id) =>
 export const submitApproval = (id, approved, comment = "") =>
   api.post(`/workflow/${id}/approval`, { approved, comment }).then((r) => r.data);
 
+export const submitFeedback = (id, rating) =>
+  api.post(`/workflow/${id}/feedback`, { rating }).then((r) => r.data);
+
 export const getMetrics = () => api.get("/metrics").then((r) => r.data);
+
+export const getMemoryHistory = (limit = 20) =>
+  api.get(`/memory?limit=${limit}`).then((r) => r.data);
 
 export const ingestFile = (file) => {
   const form = new FormData();

@@ -9,29 +9,33 @@ from backend.graph.state import AgentState
 
 @pytest.mark.asyncio
 async def test_workflow_runs_to_interrupt():
-    wf_id = str(uuid.uuid4())
+    session_id = str(uuid.uuid4())
     initial: AgentState = {
-        "workflow_id": wf_id,
+        "session_id": session_id,
         "user_query": "Prepare weekly report",
         "goal": "",
-        "required_agents": [],
+        "route": [],
         "tasks": [],
         "documents": [],
         "insights": {},
         "risks": [],
         "recommendations": [],
+        "confidence": 0.0,
+        "explanation": [],
+        "health_score": 0,
         "approved": False,
+        "feedback": None,
         "execution_result": "",
         "status": "planning",
         "agent_logs": [],
         "created_at": "2026-06-21T00:00:00Z",
         "error": None,
     }
-    config = {"configurable": {"thread_id": wf_id}}
+    config = {"configurable": {"thread_id": session_id}}
 
     supervisor_out = {
         "goal": "prepare_weekly_report",
-        "required_agents": ["planner", "knowledge", "analytics", "decision"],
+        "route": ["planner", "knowledge", "analytics", "decision"],
     }
     planner_out = {"tasks": ["collect_data", "analyze", "recommend"]}
     knowledge_out = [{"content": "Project Beta at risk", "metadata": {}}]
@@ -39,8 +43,13 @@ async def test_workflow_runs_to_interrupt():
         "kpis": {"on_track": 3, "at_risk": 2},
         "risks": [{"project": "Beta", "risk_level": "High", "reason": "Missing devs"}],
         "insights": {"summary": "Below target", "key_finding": "Resource issues"},
+        "health_score": 68,
     }
-    decision_out = {"recommendations": ["Allocate engineers to Beta"]}
+    decision_out = {
+        "recommendations": ["Allocate engineers to Beta"],
+        "confidence": 0.85,
+        "explanation": ["Beta completion at 52%", "Resource gap is primary driver"],
+    }
 
     with (
         patch("backend.agents.supervisor.chain") as s,
@@ -58,7 +67,12 @@ async def test_workflow_runs_to_interrupt():
         await workflow.ainvoke(initial, config=config)
 
     state = workflow.get_state(config)
-    assert state.values["status"] == "waiting_approval"
-    assert state.values["goal"] == "prepare_weekly_report"
-    assert len(state.values["recommendations"]) >= 1
-    assert len(state.values["agent_logs"]) == 5  # supervisor, planner, knowledge, analytics, decision
+    vals = state.values
+    assert vals["status"] == "waiting_approval"
+    assert vals["goal"] == "prepare_weekly_report"
+    assert vals["route"] == ["planner", "knowledge", "analytics", "decision"]
+    assert len(vals["recommendations"]) >= 1
+    assert vals["confidence"] == 0.85
+    assert len(vals["explanation"]) >= 1
+    assert vals["health_score"] == 68
+    assert len(vals["agent_logs"]) == 5  # supervisor, planner, knowledge, analytics, decision

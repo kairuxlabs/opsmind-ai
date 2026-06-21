@@ -1,6 +1,12 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { createWorkflow, getMetrics, ingestFile } from "../api/client.js";
+
+const EXAMPLE_QUERIES = [
+  "Prepare weekly operations report and highlight top risks",
+  "Analyze project portfolio health and suggest priorities",
+  "Identify bottlenecks and recommend resource reallocation",
+];
 
 export default function Dashboard() {
   const [request, setRequest] = useState("");
@@ -41,18 +47,16 @@ export default function Dashboard() {
 
   return (
     <div className="max-w-4xl mx-auto px-6 py-10">
-      <h1 className="text-3xl font-bold mb-2">Command Center</h1>
-      <p className="text-gray-400 mb-8">
-        Submit a request and let AI Digital Teammates handle it.
-      </p>
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold mb-1">Command Center</h1>
+        <p className="text-gray-400 text-sm">
+          AI Digital Teammates collaborate autonomously to support your decisions.
+        </p>
+      </div>
 
-      <form
-        onSubmit={handleSubmit}
-        className="bg-gray-900 rounded-xl p-6 border border-gray-800 mb-8"
-      >
-        <label className="block text-sm text-gray-400 mb-2">
-          What do you need today?
-        </label>
+      {/* Workflow submission */}
+      <form onSubmit={handleSubmit} className="bg-gray-900 rounded-xl p-6 border border-gray-800 mb-4">
+        <label className="block text-sm text-gray-400 mb-2">What do you need today?</label>
         <textarea
           className="w-full bg-gray-800 rounded-lg px-4 py-3 text-gray-100 border border-gray-700 focus:outline-none focus:border-brand-600 resize-none"
           rows={3}
@@ -77,11 +81,23 @@ export default function Dashboard() {
         {uploadMsg && <p className="text-green-400 text-sm mt-2">{uploadMsg}</p>}
       </form>
 
+      {/* Example queries */}
+      <div className="flex flex-wrap gap-2 mb-10">
+        {EXAMPLE_QUERIES.map((q) => (
+          <button
+            key={q}
+            onClick={() => setRequest(q)}
+            className="text-xs text-gray-500 bg-gray-900 border border-gray-800 hover:border-gray-600 hover:text-gray-300 px-3 py-1.5 rounded-full transition-colors"
+          >
+            {q}
+          </button>
+        ))}
+      </div>
+
+      {/* Metrics */}
       {metrics && (
-        <div>
-          <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wide mb-3">
-            Today's Insights
-          </h2>
+        <div className="mb-8">
+          <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Live Metrics</h2>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {[
               { label: "Workflows Today", value: metrics.workflows_today, color: "text-blue-400" },
@@ -89,10 +105,7 @@ export default function Dashboard() {
               { label: "Human Approvals", value: metrics.human_approvals, color: "text-green-400" },
               { label: "Risks Detected", value: metrics.risks_detected, color: "text-orange-400" },
             ].map((m) => (
-              <div
-                key={m.label}
-                className="bg-gray-900 rounded-lg p-4 border border-gray-800"
-              >
+              <div key={m.label} className="bg-gray-900 rounded-lg p-4 border border-gray-800">
                 <p className="text-gray-500 text-xs mb-1">{m.label}</p>
                 <p className={`text-2xl font-bold ${m.color}`}>{m.value}</p>
               </div>
@@ -100,6 +113,31 @@ export default function Dashboard() {
           </div>
         </div>
       )}
+
+      {/* Quick links to new v3 pages */}
+      <div>
+        <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">System</h2>
+        <div className="grid grid-cols-2 gap-4">
+          <Link
+            to="/memory"
+            className="bg-gray-900 border border-gray-800 hover:border-gray-600 rounded-xl p-5 transition-colors group"
+          >
+            <p className="text-white font-medium mb-1 group-hover:text-brand-400 transition-colors">
+              Memory Center
+            </p>
+            <p className="text-gray-500 text-xs">Workflow history, recommendation logs, and feedback</p>
+          </Link>
+          <Link
+            to="/observability"
+            className="bg-gray-900 border border-gray-800 hover:border-gray-600 rounded-xl p-5 transition-colors group"
+          >
+            <p className="text-white font-medium mb-1 group-hover:text-brand-400 transition-colors">
+              Observability
+            </p>
+            <p className="text-gray-500 text-xs">Live agent metrics, latency, and system health</p>
+          </Link>
+        </div>
+      </div>
     </div>
   );
 }

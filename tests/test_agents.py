@@ -6,16 +6,20 @@ from backend.graph.state import AgentState
 
 def make_state(**overrides) -> AgentState:
     base: AgentState = {
-        "workflow_id": "test-wf-1",
+        "session_id": "test-wf-1",
         "user_query": "Prepare weekly report and suggest priorities for next week",
         "goal": "",
-        "required_agents": [],
+        "route": [],
         "tasks": [],
         "documents": [],
         "insights": {},
         "risks": [],
         "recommendations": [],
+        "confidence": 0.0,
+        "explanation": [],
+        "health_score": 0,
         "approved": False,
+        "feedback": None,
         "execution_result": "",
         "status": "planning",
         "agent_logs": [],
@@ -27,17 +31,18 @@ def make_state(**overrides) -> AgentState:
 
 
 @pytest.mark.asyncio
-async def test_supervisor_node_returns_goal_and_agents():
+async def test_supervisor_node_returns_goal_and_route():
     mock_output = {
         "goal": "prepare_weekly_report",
-        "required_agents": ["planner", "knowledge", "analytics", "decision"],
+        "route": ["planner", "knowledge", "analytics", "decision"],
     }
     with patch("backend.agents.supervisor.chain") as mock_chain:
         mock_chain.ainvoke = AsyncMock(return_value=mock_output)
         from backend.agents.supervisor import supervisor_node
         result = await supervisor_node(make_state())
     assert result["goal"] == "prepare_weekly_report"
-    assert "planner" in result["required_agents"]
+    assert "planner" in result["route"]
+    assert "decision" in result["route"]
     assert result["status"] == "running"
     assert len(result["agent_logs"]) == 1
     assert result["agent_logs"][0]["agent"] == "supervisor"
@@ -69,11 +74,12 @@ async def test_knowledge_node_returns_documents():
 
 
 @pytest.mark.asyncio
-async def test_analytics_node_returns_insights_and_risks():
+async def test_analytics_node_returns_insights_risks_and_health_score():
     mock_output = {
         "kpis": {"on_track": 3, "at_risk": 2},
         "risks": [{"project": "Project Beta", "risk_level": "High", "reason": "Missing developers"}],
         "insights": {"summary": "Team below velocity target", "key_finding": "Resource constraints"},
+        "health_score": 72,
     }
     with patch("backend.agents.analytics.chain") as mock_chain:
         mock_chain.ainvoke = AsyncMock(return_value=mock_output)
@@ -85,16 +91,22 @@ async def test_analytics_node_returns_insights_and_risks():
         ))
     assert isinstance(result["insights"], dict)
     assert len(result["risks"]) >= 1
+    assert result["health_score"] == 72
     assert result["agent_logs"][0]["agent"] == "analytics"
 
 
 @pytest.mark.asyncio
-async def test_decision_node_returns_recommendations():
+async def test_decision_node_returns_recommendations_confidence_explanation():
     mock_output = {
         "recommendations": [
             "Allocate 2 engineers to Project Beta",
             "Review scope of Project Gamma with client",
-        ]
+        ],
+        "confidence": 0.91,
+        "explanation": [
+            "Project Beta completion rate is 52% vs 75% target",
+            "Resource shortage is the primary driver",
+        ],
     }
     with patch("backend.agents.decision.chain") as mock_chain:
         mock_chain.ainvoke = AsyncMock(return_value=mock_output)
@@ -105,6 +117,8 @@ async def test_decision_node_returns_recommendations():
             risks=[{"project": "Project Beta", "risk_level": "High", "reason": "Missing devs"}],
         ))
     assert len(result["recommendations"]) >= 1
+    assert result["confidence"] == 0.91
+    assert len(result["explanation"]) >= 1
     assert result["status"] == "waiting_approval"
     assert result["agent_logs"][0]["agent"] == "decision"
 

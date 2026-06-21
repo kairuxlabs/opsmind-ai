@@ -16,8 +16,8 @@ _llm = ChatOpenAI(
 )
 
 _prompt = ChatPromptTemplate.from_template(
-    """You are the Analytics Agent for OpsMind AI.
-Analyze the context data and extract KPIs, identify risks, and provide insights.
+    """You are the Analytics Agent for OpsMind AI — an Enterprise AI Operating System.
+Analyze the context data: extract KPIs, detect anomalies, identify risks, and compute an enterprise health score.
 
 User Query: {user_query}
 Tasks: {tasks}
@@ -40,8 +40,16 @@ Respond ONLY with valid JSON:
   "insights": {{
     "summary": "Team is operating below velocity target with 2 projects at risk",
     "key_finding": "Resource constraints are the primary driver of project delays"
-  }}
-}}"""
+  }},
+  "health_score": 72
+}}
+
+Health Score formula (0-100):
+- Start at 100
+- Subtract 10 for each Critical risk, 5 for each High risk
+- Subtract 5 for each project with completion_rate below 70%
+- Add 5 if team velocity >= 90% of target
+- Clamp result between 0 and 100"""
 )
 
 chain = _prompt | _llm | JsonOutputParser()
@@ -60,5 +68,6 @@ async def analytics_node(state: AgentState) -> dict:
     return {
         "insights": result.get("insights", {}),
         "risks": result.get("risks", []),
+        "health_score": int(result.get("health_score", 70)),
         "agent_logs": state.get("agent_logs", []) + [log],
     }
