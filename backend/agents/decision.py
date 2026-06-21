@@ -7,6 +7,7 @@ from langchain_openai import ChatOpenAI
 
 from backend.config import settings
 from backend.graph.state import AgentState
+from backend.memory.store import load_recent_feedback_for_goal
 
 _llm = ChatOpenAI(
     model="deepseek-chat",
@@ -25,6 +26,7 @@ User Query: {user_query}
 Goal: {goal}
 Insights: {insights}
 Risks: {risks}
+Past Feedback on Similar Goals: {feedback_context}
 
 Respond ONLY with valid JSON:
 {{
@@ -57,7 +59,9 @@ Rules:
 - confidence between 0.0 and 1.0 (higher = more evidence supports the recommendations)
 - Each recommendation must have 2-4 specific data-point reasons
 - explanation is a 2-5 item overall summary across all recommendations
-- Each recommendation text must specify WHO does WHAT by WHEN"""
+- Each recommendation text must specify WHO does WHAT by WHEN
+- If past feedback shows "not_helpful", make recommendations MORE specific and evidence-based
+- If past feedback shows "helpful", maintain the same style and depth"""
 )
 
 chain = _prompt | _llm | JsonOutputParser()
@@ -65,11 +69,29 @@ chain = _prompt | _llm | JsonOutputParser()
 
 async def decision_node(state: AgentState) -> dict:
     start = time.time()
+
+    # Load feedback from similar past goals to guide this recommendation
+    try:
+        past_feedback = await load_recent_feedback_for_goal(state.get("goal", ""), limit=5)
+    except Exception:
+        past_feedback = []
+
+    if past_feedback:
+        helpful_count = sum(1 for f in past_feedback if f.get("rating") == "helpful")
+        feedback_context = (
+            f"{helpful_count}/{len(past_feedback)} similar past recommendations were marked helpful. "
+            + ("Users found these recommendations useful — maintain depth and specificity." if helpful_count > len(past_feedback) / 2
+               else "Users found past recommendations not specific enough — be more concrete with owners and deadlines.")
+        )
+    else:
+        feedback_context = "No prior feedback available for this goal type."
+
     result = await chain.ainvoke({
         "user_query": state["user_query"],
         "goal": state["goal"],
         "insights": json.dumps(state.get("insights", {})),
         "risks": json.dumps(state.get("risks", [])),
+        "feedback_context": feedback_context,
     })
     latency = int((time.time() - start) * 1000)
 

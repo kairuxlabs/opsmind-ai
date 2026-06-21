@@ -19,6 +19,15 @@ export const getMetrics = () => api.get("/metrics").then((r) => r.data);
 export const getMemoryHistory = (limit = 20) =>
   api.get(`/memory?limit=${limit}`).then((r) => r.data);
 
+export const getMemoryStats = () =>
+  api.get("/memory/stats").then((r) => r.data);
+
+export const getEntityMemories = (limit = 20) =>
+  api.get(`/memory/entities?limit=${limit}`).then((r) => r.data);
+
+export const getFeedbackHistory = (limit = 20) =>
+  api.get(`/memory/feedback?limit=${limit}`).then((r) => r.data);
+
 export const ingestFile = (file) => {
   const form = new FormData();
   form.append("file", file);
