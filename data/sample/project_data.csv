@@ -1,0 +1,11 @@
+project_name,status,progress_percent,team_lead,deadline,risks,notes
+Project Alpha,On Track,75,Alice,2026-07-15,Low,Sprint 3 completed successfully
+Project Beta,At Risk,40,Bob,2026-06-30,High,Missing 2 key developers since May
+Project Gamma,Delayed,20,Carol,2026-06-25,Critical,Client requirements changed mid-sprint
+Project Delta,On Track,90,Dave,2026-07-01,Low,Final testing phase
+Project Epsilon,At Risk,55,Eve,2026-07-20,Medium,Third-party API integration delays
+Weekly Velocity,,,,,,"Team averaged 42 story points vs 50 target"
+Resource Utilization,,,,,,"Dev team at 95% capacity, DevOps at 60%"
+Key Achievement,,,,,,"Launched new CI/CD pipeline reducing deploy time by 40%"
+Blocker,,,,,,"Security audit scheduled for next week may delay Project Gamma"
+Priority Next Week,,,,,,"Focus on Project Beta resource allocation and Project Gamma scope review"
