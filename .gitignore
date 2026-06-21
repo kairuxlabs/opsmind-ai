@@ -1,6 +1,7 @@
 .idea/
 docs/superpowers/
-docs/idea.txt
+docs/specs/idea.txt
+docs/specs
 CLAUDE.md
 .claude/
 
