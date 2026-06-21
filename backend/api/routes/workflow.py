@@ -4,12 +4,17 @@ import uuid
 from datetime import datetime, timezone
 
 import aiofiles
-from fastapi import APIRouter, File, HTTPException, UploadFile
+from fastapi import APIRouter, BackgroundTasks, File, HTTPException, UploadFile
 from pydantic import BaseModel
 
 from backend.graph.state import AgentState
 from backend.graph.workflow import workflow as lg_workflow
-from backend.observability.tracker import get_system_metrics, log_agent_event, write_workflow, update_workflow_status
+from backend.observability.tracker import (
+    get_system_metrics,
+    log_agent_event,
+    update_workflow_status,
+    write_workflow,
+)
 from backend.rag.ingest import ingest_csv, ingest_text
 
 router = APIRouter()
@@ -22,8 +27,38 @@ class WorkflowRequest(BaseModel):
     request: str
 
 
+async def _run_workflow_streaming(session_id: str, initial: AgentState, config: dict) -> None:
+    """Background task: streams each agent node via LangGraph astream, logs to DB incrementally."""
+    seen_agents: set[str] = set()
+    try:
+        async for state in lg_workflow.astream(initial, config=config, stream_mode="values"):
+            for log in state.get("agent_logs", []):
+                agent = log["agent"]
+                if agent not in seen_agents:
+                    seen_agents.add(agent)
+                    try:
+                        await log_agent_event(
+                            workflow_id=session_id,
+                            agent_name=agent,
+                            latency_ms=log["latency_ms"],
+                            output=log["output"],
+                        )
+                    except Exception:
+                        pass
+    except Exception:
+        pass
+
+    # Workflow reached interrupt (waiting_approval) — update DB status
+    try:
+        final = lg_workflow.get_state(config)
+        status = final.values.get("status", "waiting_approval") if final and final.values else "waiting_approval"
+        await update_workflow_status(session_id, status)
+    except Exception:
+        pass
+
+
 @router.post("/workflow")
-async def create_workflow(body: WorkflowRequest):
+async def create_workflow(body: WorkflowRequest, background_tasks: BackgroundTasks):
     session_id = str(uuid.uuid4())
     config = {"configurable": {"thread_id": session_id}}
 
@@ -40,10 +75,11 @@ async def create_workflow(body: WorkflowRequest):
         "confidence": 0.0,
         "explanation": [],
         "health_score": 0,
+        "critique": None,
         "approved": False,
         "feedback": None,
         "execution_result": "",
-        "status": "planning",
+        "status": "starting",
         "agent_logs": [],
         "created_at": datetime.now(timezone.utc).isoformat(),
         "error": None,
@@ -54,33 +90,15 @@ async def create_workflow(body: WorkflowRequest):
     except Exception:
         pass
 
-    await lg_workflow.ainvoke(initial, config=config)
-
-    state = lg_workflow.get_state(config)
-    current = state.values
-
-    for log in current.get("agent_logs", []):
-        try:
-            await log_agent_event(
-                workflow_id=session_id,
-                agent_name=log["agent"],
-                latency_ms=log["latency_ms"],
-                output=log["output"],
-            )
-        except Exception:
-            pass
-
-    try:
-        await update_workflow_status(session_id, current.get("status", "waiting_approval"))
-    except Exception:
-        pass
-
+    # Register before task starts so GET can find this workflow immediately
     _registry[session_id] = config
+    background_tasks.add_task(_run_workflow_streaming, session_id, initial, config)
+
     return {
         "workflow_id": session_id,
-        "status": current.get("status", "waiting_approval"),
-        "goal": current.get("goal", ""),
-        "route": current.get("route", []),
+        "status": "starting",
+        "goal": "",
+        "route": [],
     }
 
 
@@ -90,7 +108,30 @@ async def get_workflow(workflow_id: str):
         raise HTTPException(status_code=404, detail="Workflow not found")
     config = _registry[workflow_id]
     state = lg_workflow.get_state(config)
-    current = state.values
+
+    # State may be empty if background task hasn't committed the first node yet
+    current = state.values if (state and state.values) else {}
+    if not current:
+        return {
+            "workflow_id": workflow_id,
+            "status": "starting",
+            "user_query": "",
+            "goal": "",
+            "route": [],
+            "tasks": [],
+            "insights": {},
+            "risks": [],
+            "recommendations": [],
+            "confidence": 0.0,
+            "explanation": [],
+            "health_score": 0,
+            "critique": None,
+            "agent_logs": [],
+            "execution_result": "",
+            "feedback": None,
+            "created_at": None,
+        }
+
     return {
         "workflow_id": workflow_id,
         "status": current.get("status"),

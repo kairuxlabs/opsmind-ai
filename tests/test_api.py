@@ -7,36 +7,18 @@ from backend.api.main import app
 
 @pytest.mark.asyncio
 async def test_create_workflow_returns_workflow_id():
-    mock_state = MagicMock()
-    mock_state.values = {
-        "status": "waiting_approval",
-        "goal": "prepare_weekly_report",
-        "route": ["planner", "knowledge", "analytics", "decision"],
-        "tasks": ["collect_data"],
-        "insights": {},
-        "risks": [],
-        "recommendations": ["Allocate engineers"],
-        "confidence": 0.85,
-        "explanation": ["Beta at risk"],
-        "health_score": 72,
-        "agent_logs": [],
-        "execution_result": "",
-        "user_query": "Prepare weekly report",
-        "feedback": None,
-    }
-    with patch("backend.api.routes.workflow.lg_workflow") as mock_wf:
-        mock_wf.ainvoke = AsyncMock(return_value=None)
-        mock_wf.get_state = MagicMock(return_value=mock_state)
-
+    # POST now returns immediately (status: "starting") — workflow runs in background
+    with patch("backend.api.routes.workflow.write_workflow", new_callable=AsyncMock), \
+         patch("backend.api.routes.workflow._run_workflow_streaming", new_callable=AsyncMock):
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             resp = await client.post("/api/workflow", json={"request": "Prepare weekly report"})
 
     assert resp.status_code == 200
     data = resp.json()
     assert "workflow_id" in data
-    assert data["status"] == "waiting_approval"
-    assert data["goal"] == "prepare_weekly_report"
-    assert data["route"] == ["planner", "knowledge", "analytics", "decision"]
+    assert data["status"] == "starting"
+    assert data["goal"] == ""
+    assert data["route"] == []
 
 
 @pytest.mark.asyncio

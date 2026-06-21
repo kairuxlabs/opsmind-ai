@@ -2,9 +2,10 @@ import { useState, useEffect, useCallback } from "react";
 import { useParams, Link } from "react-router-dom";
 import { getWorkflow, submitFeedback } from "../api/client.js";
 import HumanApproval from "./HumanApproval.jsx";
-import AgentMonitor from "./AgentMonitor.jsx";
+import AgentTimeline from "./AgentTimeline.jsx";
 
 const STATUS_STYLE = {
+  starting: "text-gray-400",
   planning: "text-yellow-400",
   running: "text-blue-400",
   waiting_approval: "text-orange-400",
@@ -121,8 +122,8 @@ export default function WorkflowView() {
 
   useEffect(() => {
     if (!wf) return;
-    if (["planning", "running", "executing"].includes(wf.status)) {
-      const t = setInterval(refresh, 2000);
+    if (["starting", "planning", "running", "executing"].includes(wf.status)) {
+      const t = setInterval(refresh, 1000);
       return () => clearInterval(t);
     }
   }, [wf?.status, refresh]);
@@ -140,9 +141,6 @@ export default function WorkflowView() {
     );
   }
 
-  const executedAgents = new Set((wf.agent_logs || []).map((l) => l.agent));
-  const allAgents = ["supervisor", ...(wf.route || []), "executor", "memory"];
-  const uniqueAgents = [...new Set(allAgents)];
 
   return (
     <div className="max-w-4xl mx-auto px-6 py-10">
@@ -159,6 +157,14 @@ export default function WorkflowView() {
           ● {wf.status?.replace(/_/g, " ")}
         </span>
       </div>
+
+      {/* Starting banner */}
+      {wf.status === "starting" && (
+        <div className="flex items-center gap-3 bg-gray-900 border border-gray-800 rounded-xl p-4 mb-6">
+          <span className="w-2.5 h-2.5 rounded-full bg-blue-400 animate-pulse shrink-0" />
+          <p className="text-sm text-blue-300">AI agents are launching — timeline will update in real time</p>
+        </div>
+      )}
 
       {/* Request + Route */}
       <div className="bg-gray-900 rounded-xl border border-gray-800 p-5 mb-6">
@@ -187,8 +193,8 @@ export default function WorkflowView() {
         )}
       </div>
 
-      {/* Agent Monitor */}
-      <AgentMonitor agents={uniqueAgents} executedAgents={executedAgents} agentLogs={wf.agent_logs || []} />
+      {/* Agent Timeline */}
+      <AgentTimeline agentLogs={wf.agent_logs || []} route={wf.route} status={wf.status} />
 
       {/* Health Score */}
       {wf.health_score > 0 && (
