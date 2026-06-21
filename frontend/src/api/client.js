@@ -20,6 +20,12 @@ export const submitFeedback = (id, rating) =>
 
 export const getMetrics = () => api.get("/metrics").then((r) => r.data);
 
+export const getMetricsHistory = (days = 7) =>
+  api.get(`/metrics/history?days=${days}`).then((r) => r.data);
+
+export const runPlayground = (agent, query) =>
+  api.post("/playground", { agent, query }).then((r) => r.data);
+
 export const getMemoryHistory = (limit = 20) =>
   api.get(`/memory?limit=${limit}`).then((r) => r.data);
 

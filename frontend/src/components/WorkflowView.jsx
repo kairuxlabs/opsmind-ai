@@ -118,15 +118,48 @@ export default function WorkflowView() {
       .catch(() => setLoading(false));
   }, [id]);
 
+  // Initial fetch
   useEffect(() => { refresh(); }, [refresh]);
 
+  // SSE stream: replaces polling for active workflow execution
   useEffect(() => {
-    if (!wf) return;
-    if (["starting", "planning", "running", "executing"].includes(wf.status)) {
-      const t = setInterval(refresh, 1000);
-      return () => clearInterval(t);
-    }
-  }, [wf?.status, refresh]);
+    if (!id) return;
+    const es = new EventSource(`/api/workflow/${id}/events`);
+
+    es.addEventListener("agent", (e) => {
+      const log = JSON.parse(e.data);
+      setWf((prev) => {
+        if (!prev) return prev;
+        const already = (prev.agent_logs || []).some((l) => l.agent === log.agent);
+        if (already) return prev;
+        return { ...prev, agent_logs: [...(prev.agent_logs || []), log] };
+      });
+    });
+
+    es.addEventListener("status", (e) => {
+      const data = JSON.parse(e.data);
+      setWf((prev) => prev ? {
+        ...prev,
+        status: data.status,
+        goal: data.goal || prev.goal,
+        route: data.route?.length ? data.route : prev.route,
+      } : prev);
+    });
+
+    es.addEventListener("done", (e) => {
+      const snapshot = JSON.parse(e.data);
+      setWf((prev) => ({ ...prev, ...snapshot }));
+      setLoading(false);
+      es.close();
+    });
+
+    es.onerror = () => {
+      es.close();
+      refresh();
+    };
+
+    return () => es.close();
+  }, [id, refresh]);
 
   if (loading) {
     return <div className="p-10 text-center text-gray-400 animate-pulse">Loading workflow…</div>;

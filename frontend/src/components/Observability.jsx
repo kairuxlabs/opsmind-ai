@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { getMetrics } from "../api/client.js";
+import { getMetrics, getMetricsHistory } from "../api/client.js";
 
 function MetricCard({ label, value, unit = "", color = "text-white" }) {
   return (
@@ -40,16 +40,67 @@ function RateBar({ label, value, target, good }) {
   );
 }
 
+function BarChart({ data }) {
+  if (!data || data.length === 0) {
+    return (
+      <div className="flex items-center justify-center h-32 text-gray-600 text-sm">
+        No workflow data yet
+      </div>
+    );
+  }
+
+  const maxTotal = Math.max(...data.map((d) => d.total), 1);
+
+  return (
+    <div className="flex items-end gap-2 h-36 pt-2">
+      {data.map((d, i) => {
+        const totalPct = (d.total / maxTotal) * 100;
+        const completedPct = d.total > 0 ? (d.completed / d.total) * 100 : 0;
+        const label = d.date.slice(5); // "06-21"
+        return (
+          <div key={i} className="flex-1 flex flex-col items-center gap-1 group">
+            {/* Tooltip */}
+            <div className="hidden group-hover:block absolute bg-gray-800 border border-gray-700 rounded px-2 py-1 text-xs text-gray-200 -translate-y-full mb-1 pointer-events-none z-10 whitespace-nowrap">
+              {d.date}: {d.total} workflows, {d.completed} completed
+            </div>
+            <div className="w-full flex flex-col justify-end h-28 relative">
+              {/* Total bar */}
+              <div
+                className="w-full rounded-t bg-gray-700 transition-all"
+                style={{ height: `${Math.max(totalPct, 4)}%` }}
+              >
+                {/* Completed overlay */}
+                <div
+                  className="w-full rounded-t bg-brand-600 transition-all absolute bottom-0"
+                  style={{ height: `${Math.max(completedPct * totalPct / 100, totalPct > 0 ? 4 : 0)}%` }}
+                />
+              </div>
+            </div>
+            <span className="text-gray-600 text-xs">{label}</span>
+            {d.total > 0 && (
+              <span className="text-gray-400 text-xs font-mono">{d.total}</span>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 export default function Observability() {
   const [metrics, setMetrics] = useState(null);
+  const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetch = () =>
-      getMetrics()
-        .then(setMetrics)
-        .catch(() => {})
-        .finally(() => setLoading(false));
+      Promise.all([
+        getMetrics().catch(() => null),
+        getMetricsHistory(7).catch(() => []),
+      ]).then(([m, h]) => {
+        if (m) setMetrics(m);
+        setHistory(h || []);
+      }).finally(() => setLoading(false));
 
     fetch();
     const t = setInterval(fetch, 10000);
@@ -119,6 +170,24 @@ export default function Observability() {
               unit="%"
               color={(metrics?.error_rate ?? 0) > 10 ? "text-red-400" : "text-green-400"}
             />
+          </div>
+
+          {/* 7-day history chart */}
+          <div className="bg-gray-900 rounded-xl border border-gray-800 p-6 mb-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-semibold text-gray-200">Workflows — Last 7 Days</h3>
+              <div className="flex items-center gap-3">
+                <span className="flex items-center gap-1.5 text-xs text-gray-500">
+                  <span className="w-2.5 h-2.5 rounded-sm bg-brand-600 inline-block" />
+                  Completed
+                </span>
+                <span className="flex items-center gap-1.5 text-xs text-gray-500">
+                  <span className="w-2.5 h-2.5 rounded-sm bg-gray-700 inline-block" />
+                  Total
+                </span>
+              </div>
+            </div>
+            <BarChart data={history} />
           </div>
 
           {/* Langfuse tracing card */}

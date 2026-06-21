@@ -1,3 +1,5 @@
+import asyncio
+import json
 import os
 import tempfile
 import uuid
@@ -6,16 +8,18 @@ from datetime import datetime, timezone
 import aiofiles
 from fastapi import APIRouter, BackgroundTasks, File, HTTPException, UploadFile
 from pydantic import BaseModel
+from sse_starlette.sse import EventSourceResponse
 
 from backend.graph.state import AgentState
 from backend.graph.workflow import workflow as lg_workflow
 from backend.observability.tracker import (
+    get_metrics_history,
     get_system_metrics,
     log_agent_event,
     update_workflow_status,
     write_workflow,
 )
-from backend.rag.ingest import ingest_csv, ingest_text
+from backend.rag.ingest import ingest_csv, ingest_pdf, ingest_text
 
 router = APIRouter()
 
@@ -161,6 +165,89 @@ async def get_metrics():
         return {"workflows_today": 0, "avg_latency_ms": 0, "human_approvals": 0, "risks_detected": 0}
 
 
+@router.get("/metrics/history")
+async def get_metrics_history_endpoint(days: int = 7):
+    try:
+        return await get_metrics_history(days)
+    except Exception:
+        return []
+
+
+@router.get("/workflow/{workflow_id}/events")
+async def stream_workflow_events(workflow_id: str):
+    """Server-Sent Events stream for real-time agent progress during workflow execution."""
+    if workflow_id not in _registry:
+        raise HTTPException(status_code=404, detail="Workflow not found")
+
+    config = _registry[workflow_id]
+
+    async def generator():
+        sent_agents: set[str] = set()
+        last_status: str | None = None
+
+        for _ in range(300):  # max 150s @ 0.5s per tick
+            state = lg_workflow.get_state(config)
+            current = state.values if (state and state.values) else {}
+
+            if not current:
+                yield {"event": "ping", "data": "{}"}
+                await asyncio.sleep(0.5)
+                continue
+
+            # Emit new agent completions in order
+            for log in current.get("agent_logs", []):
+                agent = log["agent"]
+                if agent not in sent_agents:
+                    sent_agents.add(agent)
+                    yield {
+                        "event": "agent",
+                        "data": json.dumps({
+                            "agent": agent,
+                            "latency_ms": log["latency_ms"],
+                            "output": log.get("output", {}),
+                        }),
+                    }
+
+            # Emit status transitions
+            status = current.get("status")
+            if status != last_status:
+                last_status = status
+                yield {
+                    "event": "status",
+                    "data": json.dumps({
+                        "status": status,
+                        "goal": current.get("goal", ""),
+                        "route": current.get("route", []),
+                    }),
+                }
+
+            # Terminal: send full snapshot and close
+            if status in ("waiting_approval", "completed", "failed", "rejected"):
+                yield {
+                    "event": "done",
+                    "data": json.dumps({
+                        "status": status,
+                        "goal": current.get("goal", ""),
+                        "route": current.get("route", []),
+                        "confidence": current.get("confidence", 0.0),
+                        "health_score": current.get("health_score", 0),
+                        "recommendations": current.get("recommendations", []),
+                        "risks": current.get("risks", []),
+                        "insights": current.get("insights", {}),
+                        "explanation": current.get("explanation", []),
+                        "critique": current.get("critique"),
+                        "tasks": current.get("tasks", []),
+                        "execution_result": current.get("execution_result", ""),
+                        "agent_logs": current.get("agent_logs", []),
+                    }),
+                }
+                break
+
+            await asyncio.sleep(0.3)
+
+    return EventSourceResponse(generator())
+
+
 @router.post("/ingest")
 async def ingest_file(file: UploadFile = File(...)):
     suffix = os.path.splitext(file.filename or "upload.txt")[1].lower()
@@ -169,7 +256,12 @@ async def ingest_file(file: UploadFile = File(...)):
     try:
         async with aiofiles.open(tmp_path, "wb") as f:
             await f.write(await file.read())
-        count = await ingest_csv(tmp_path) if suffix == ".csv" else await ingest_text(tmp_path)
+        if suffix == ".csv":
+            count = await ingest_csv(tmp_path)
+        elif suffix == ".pdf":
+            count = await ingest_pdf(tmp_path)
+        else:
+            count = await ingest_text(tmp_path)
     finally:
         os.unlink(tmp_path)
     return {"ingested": count, "filename": file.filename}

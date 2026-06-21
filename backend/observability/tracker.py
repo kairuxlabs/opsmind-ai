@@ -85,6 +85,41 @@ async def update_workflow_status(workflow_id: str, status: str) -> None:
         await conn.close()
 
 
+async def get_metrics_history(days: int = 7) -> list[dict]:
+    """Return per-day counts for the last N days."""
+    conn = await _get_conn()
+    try:
+        rows = await conn.fetch(
+            """
+            SELECT
+                created_at::date AS day,
+                COUNT(*) AS total,
+                COUNT(*) FILTER (WHERE status = 'completed') AS completed,
+                COUNT(*) FILTER (WHERE status = 'failed') AS failed,
+                COALESCE(AVG(
+                    EXTRACT(EPOCH FROM (updated_at - created_at)) * 1000
+                )::int, 0) AS avg_ms
+            FROM workflows
+            WHERE created_at >= NOW() - ($1 || ' days')::interval
+            GROUP BY day
+            ORDER BY day
+            """,
+            str(days),
+        )
+        return [
+            {
+                "date": str(r["day"]),
+                "total": int(r["total"]),
+                "completed": int(r["completed"]),
+                "failed": int(r["failed"]),
+                "avg_latency_ms": int(r["avg_ms"]),
+            }
+            for r in rows
+        ]
+    finally:
+        await conn.close()
+
+
 async def get_system_metrics() -> dict:
     conn = await _get_conn()
     try:

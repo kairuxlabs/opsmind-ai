@@ -3,6 +3,7 @@ import Dashboard from "./components/Dashboard.jsx";
 import WorkflowView from "./components/WorkflowView.jsx";
 import MemoryCenter from "./components/MemoryCenter.jsx";
 import Observability from "./components/Observability.jsx";
+import Playground from "./components/Playground.jsx";
 
 const navLinkClass = ({ isActive }) =>
   `text-sm transition-colors ${isActive ? "text-white font-medium" : "text-gray-500 hover:text-gray-300"}`;
@@ -16,15 +17,17 @@ export default function App() {
           <span className="font-bold text-lg tracking-tight">OpsMind AI</span>
         </div>
         <NavLink to="/" end className={navLinkClass}>Command Center</NavLink>
+        <NavLink to="/playground" className={navLinkClass}>Playground</NavLink>
         <NavLink to="/memory" className={navLinkClass}>Memory</NavLink>
         <NavLink to="/observability" className={navLinkClass}>Observability</NavLink>
         <span className="text-gray-700 text-xs ml-auto">
-          Enterprise AI Operating System v3.0
+          Enterprise AI Operating System v5.0
         </span>
       </nav>
       <Routes>
         <Route path="/" element={<Dashboard />} />
         <Route path="/workflow/:id" element={<WorkflowView />} />
+        <Route path="/playground" element={<Playground />} />
         <Route path="/memory" element={<MemoryCenter />} />
         <Route path="/observability" element={<Observability />} />
       </Routes>
