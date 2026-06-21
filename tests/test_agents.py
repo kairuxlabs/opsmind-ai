@@ -18,6 +18,7 @@ def make_state(**overrides) -> AgentState:
         "confidence": 0.0,
         "explanation": [],
         "health_score": 0,
+        "critique": None,
         "approved": False,
         "feedback": None,
         "execution_result": "",
@@ -148,6 +149,55 @@ async def test_decision_node_normalises_legacy_string_recommendations():
     assert isinstance(result["recommendations"][0], dict)
     assert result["recommendations"][0]["text"] == "Allocate engineers to Beta"
     assert result["recommendations"][0]["reasons"] == []
+
+
+@pytest.mark.asyncio
+async def test_critique_node_passes_good_recommendations():
+    mock_output = {
+        "consistency": True,
+        "critique_passed": True,
+        "adjusted_confidence": 0.89,
+        "issues": [],
+        "suggestions": ["Add specific timelines to recommendation 2"],
+    }
+    with patch("backend.agents.critique.chain") as mock_chain:
+        mock_chain.ainvoke = AsyncMock(return_value=mock_output)
+        from backend.agents.critique import critique_node
+        result = await critique_node(make_state(
+            recommendations=[{"text": "Allocate engineers to Beta", "reasons": ["52% completion"]}],
+            confidence=0.87,
+            explanation=["Beta at risk due to resource shortage"],
+            insights={"summary": "Below target"},
+            risks=[{"project": "Beta", "risk_level": "High", "reason": "Missing devs"}],
+        ))
+    assert result["critique"]["critique_passed"] is True
+    assert result["critique"]["adjusted_confidence"] == 0.89
+    assert result["confidence"] == 0.89  # confidence updated by critique
+    assert result["agent_logs"][0]["agent"] == "critique"
+
+
+@pytest.mark.asyncio
+async def test_critique_node_flags_issues():
+    mock_output = {
+        "consistency": False,
+        "critique_passed": False,
+        "adjusted_confidence": 0.60,
+        "issues": ["Risk 'Critical DB failure' has no corresponding recommendation"],
+        "suggestions": [],
+    }
+    with patch("backend.agents.critique.chain") as mock_chain:
+        mock_chain.ainvoke = AsyncMock(return_value=mock_output)
+        from backend.agents.critique import critique_node
+        result = await critique_node(make_state(
+            recommendations=[{"text": "Focus on marketing", "reasons": []}],
+            confidence=0.80,
+            explanation=["Marketing opportunity identified"],
+            insights={},
+            risks=[{"project": "DB", "risk_level": "Critical", "reason": "Failure imminent"}],
+        ))
+    assert result["critique"]["critique_passed"] is False
+    assert len(result["critique"]["issues"]) >= 1
+    assert result["confidence"] == 0.60
 
 
 @pytest.mark.asyncio

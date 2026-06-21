@@ -27,6 +27,45 @@ function ConfidenceMeter({ value }) {
   );
 }
 
+function CritiquePanel({ critique }) {
+  if (!critique) return null;
+  const passed = critique.critique_passed !== false;
+  return (
+    <div className={`rounded-xl border p-5 mb-4 ${passed ? "bg-gray-900 border-gray-700" : "bg-gray-900 border-yellow-700"}`}>
+      <div className="flex items-center justify-between mb-3">
+        <p className="text-sm font-semibold text-gray-300">AI Self-Critique</p>
+        <span className={`text-xs font-bold px-2 py-0.5 rounded ${passed ? "bg-green-900 text-green-400" : "bg-yellow-900 text-yellow-400"}`}>
+          {passed ? "✓ Passed" : "⚠ Issues Found"}
+        </span>
+      </div>
+      {critique.issues?.length > 0 && (
+        <div className="mb-3">
+          <p className="text-xs text-yellow-500 uppercase tracking-wide mb-1">Issues</p>
+          <ul className="space-y-0.5">
+            {critique.issues.map((issue, i) => (
+              <li key={i} className="text-sm text-yellow-300 flex gap-2">
+                <span className="flex-shrink-0">⚠</span>{issue}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {critique.suggestions?.length > 0 && (
+        <div>
+          <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">Suggestions</p>
+          <ul className="space-y-0.5">
+            {critique.suggestions.map((s, i) => (
+              <li key={i} className="text-sm text-gray-400 flex gap-2">
+                <span className="text-brand-600 flex-shrink-0">›</span>{s}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function FeedbackButtons({ workflowId, currentFeedback, onFeedback }) {
   const [sent, setSent] = useState(currentFeedback || null);
 
@@ -187,6 +226,7 @@ export default function WorkflowView() {
               )}
             </div>
           )}
+          <CritiquePanel critique={wf.critique} />
           <HumanApproval
             workflowId={id}
             recommendations={wf.recommendations}

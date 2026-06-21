@@ -8,6 +8,7 @@ class Settings(BaseSettings):
     DATABASE_URL: str = "postgresql+psycopg://postgres:postgres@localhost:5432/opsmind"
     DATABASE_URL_ASYNC: str = "postgresql://postgres:postgres@localhost:5432/opsmind"
     EMBEDDING_MODEL: str = "all-MiniLM-L6-v2"
+    RERANKER_MODEL: str = "cross-encoder/ms-marco-MiniLM-L-6-v2"
 
 
 settings = Settings()

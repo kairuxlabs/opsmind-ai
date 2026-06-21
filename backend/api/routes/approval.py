@@ -59,4 +59,5 @@ async def submit_approval(workflow_id: str, body: ApprovalRequest):
         "confidence": current.get("confidence", 0.0),
         "explanation": current.get("explanation", []),
         "health_score": current.get("health_score", 0),
+        "critique": current.get("critique"),
     }

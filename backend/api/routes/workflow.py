@@ -104,6 +104,7 @@ async def get_workflow(workflow_id: str):
         "confidence": current.get("confidence", 0.0),
         "explanation": current.get("explanation", []),
         "health_score": current.get("health_score", 0),
+        "critique": current.get("critique"),
         "agent_logs": current.get("agent_logs", []),
         "execution_result": current.get("execution_result", ""),
         "feedback": current.get("feedback"),

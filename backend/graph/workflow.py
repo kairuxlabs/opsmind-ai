@@ -2,6 +2,7 @@ from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import END, StateGraph
 
 from backend.agents.analytics import analytics_node
+from backend.agents.critique import critique_node
 from backend.agents.decision import decision_node
 from backend.agents.executor import executor_node
 from backend.agents.knowledge import knowledge_node
@@ -33,6 +34,7 @@ def _build_workflow():
     builder.add_node("knowledge", knowledge_node)
     builder.add_node("analytics", analytics_node)
     builder.add_node("decision", decision_node)
+    builder.add_node("critique", critique_node)
     builder.add_node("executor", executor_node)
     builder.add_node("memory", memory_node)
 
@@ -51,8 +53,9 @@ def _build_workflow():
     for node in ("planner", "knowledge", "analytics"):
         builder.add_conditional_edges(node, _next_agent, _route_map)
 
-    # Decision → human approval gate → executor → memory → end
-    builder.add_edge("decision", "executor")
+    # Decision → Critique → human approval gate → executor → memory → end
+    builder.add_edge("decision", "critique")
+    builder.add_edge("critique", "executor")
     builder.add_edge("executor", "memory")
     builder.add_edge("memory", END)
 

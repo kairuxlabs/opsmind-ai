@@ -15,6 +15,7 @@ def test_agent_state_has_required_fields():
         "confidence": 0.0,
         "explanation": [],
         "health_score": 0,
+        "critique": None,
         "approved": False,
         "feedback": None,
         "execution_result": "",
@@ -32,5 +33,6 @@ def test_agent_state_has_required_fields():
     assert isinstance(state["explanation"], list)
     assert state["confidence"] == 0.0
     assert state["health_score"] == 0
+    assert state["critique"] is None
     assert state["approved"] is False
     assert state["feedback"] is None
